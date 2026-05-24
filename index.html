@@ -130,8 +130,8 @@
   <aside>
     <!-- Add person -->
     <div class="sb-sec">
-      <div class="sb-head">Add Person</div>
-      <button class="sb-btn" onclick="openAdd('root')"><span class="ico">&#128100;</span> Add Root Person</button>
+      <div class="sb-head">Add to Tree</div>
+      <button class="sb-btn" onclick="openAddCouple()"><span class="ico">&#128145;</span> Add Root Couple</button>
     </div>
     <!-- Selected node actions -->
     <div class="sb-sec" id="selInfo">
@@ -191,6 +191,40 @@
   <div class="ctx-item" onclick="ctxDo('parent')">&#128072;&nbsp; Add Parent</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item red" onclick="ctxDo('delete')">&#128465;&nbsp; Delete Person</div>
+</div>
+
+<!-- COUPLE MODAL -->
+<div class="overlay" id="coupleOvl">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal('coupleOvl')">&#215;</button>
+    <div class="modal-title">Add Root Couple</div>
+    <div class="sb-head" style="margin-bottom:10px">Partner 1</div>
+    <div class="fg"><label>Full Name *</label><input id="c1Name" placeholder="e.g. Johann Schmidt" autocomplete="off"></div>
+    <div class="frow">
+      <div class="fg"><label>Birth Date</label><input id="c1Birth" placeholder="e.g. 1867"></div>
+      <div class="fg"><label>Death Date</label><input id="c1Death" placeholder="e.g. 1934"></div>
+    </div>
+    <div class="fg"><label>Relationship Label</label><input id="c1Label" placeholder="e.g. Grandfather"></div>
+    <div class="fg"><label>Notes</label><textarea id="c1Notes" placeholder="Brief notes&#8230;" style="min-height:44px"></textarea></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:14px 0 12px;border-top:1px solid var(--border);padding-top:14px">
+      <span style="color:var(--gold);font-size:.9rem">&#9829;</span>
+      <div class="sb-head" style="margin:0">Partner 2 <span style="font-weight:400;color:var(--ink-faint);text-transform:none;font-size:.78rem;letter-spacing:0">(optional)</span></div>
+    </div>
+    <div class="fg"><label>Full Name</label><input id="c2Name" placeholder="e.g. Maria Schmidt" autocomplete="off"></div>
+    <div class="frow">
+      <div class="fg"><label>Birth Date</label><input id="c2Birth" placeholder="e.g. 1870"></div>
+      <div class="fg"><label>Death Date</label><input id="c2Death" placeholder="e.g. 1945"></div>
+    </div>
+    <div class="fg"><label>Relationship Label</label><input id="c2Label" placeholder="e.g. Grandmother"></div>
+    <div class="fg"><label>Notes</label><textarea id="c2Notes" placeholder="Brief notes&#8230;" style="min-height:44px"></textarea></div>
+    <div class="modal-foot">
+      <div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-cancel" onclick="closeModal('coupleOvl')">Cancel</button>
+        <button class="btn-save" onclick="saveCouple()">Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- PERSON MODAL -->
@@ -397,6 +431,49 @@ async function switchTree(id) {
 // ═══════════════════════════════════════════════════════════
 //  PERSON MANAGEMENT
 // ═══════════════════════════════════════════════════════════
+function openAddCouple() {
+  var tree = activeTree();
+  if (!tree) { alert('Create a tree first.'); return; }
+  ['c1Name','c1Birth','c1Death','c1Label','c1Notes','c2Name','c2Birth','c2Death','c2Label','c2Notes'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('coupleOvl').classList.add('on');
+  setTimeout(function(){ document.getElementById('c1Name').focus(); }, 80);
+}
+
+async function saveCouple() {
+  var tree = activeTree(); if (!tree) return;
+  var name1 = document.getElementById('c1Name').value.trim();
+  if (!name1) { document.getElementById('c1Name').focus(); return; }
+  var id1 = gid();
+  var p1 = {
+    id: id1, childIds: [], parentId: null, spouseId: null,
+    name: name1,
+    birthDate:         document.getElementById('c1Birth').value.trim(),
+    deathDate:         document.getElementById('c1Death').value.trim(),
+    relationshipLabel: document.getElementById('c1Label').value.trim(),
+    notes:             document.getElementById('c1Notes').value.trim()
+  };
+  tree.persons[id1] = p1;
+  var name2 = document.getElementById('c2Name').value.trim();
+  if (name2) {
+    var id2 = gid();
+    var p2 = {
+      id: id2, childIds: [], parentId: null, spouseId: id1,
+      name: name2,
+      birthDate:         document.getElementById('c2Birth').value.trim(),
+      deathDate:         document.getElementById('c2Death').value.trim(),
+      relationshipLabel: document.getElementById('c2Label').value.trim(),
+      notes:             document.getElementById('c2Notes').value.trim()
+    };
+    p1.spouseId = id2;
+    tree.persons[id2] = p2;
+  }
+  selId = id1;
+  closeModal('coupleOvl');
+  await save(); renderTree(); updateSel();
+}
+
 function openAdd(mode, relatedId) {
   var tree = activeTree();
   if (!tree) { alert('Create a tree first.'); return; }
@@ -773,11 +850,12 @@ document.addEventListener('DOMContentLoaded', async function(){
   // Global event handlers
   document.addEventListener('click', function(e){ if(!e.target.closest('#ctxMenu')) hideCtx(); });
   document.addEventListener('keydown', function(e){
-    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); hideCtx(); }
+    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); closeModal('coupleOvl'); hideCtx(); }
     if (e.key==='Enter' && document.getElementById('renameOvl').classList.contains('on')) confirmRename();
   });
   document.getElementById('personOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('personOvl'); });
   document.getElementById('renameOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('renameOvl'); });
+  document.getElementById('coupleOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('coupleOvl'); });
 });
 </script>
 </body>
