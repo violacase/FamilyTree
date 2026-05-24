@@ -250,6 +250,21 @@
   </div>
 </div>
 
+<!-- NEW TREE MODAL -->
+<div class="overlay" id="newTreeOvl">
+  <div class="modal modal-sm">
+    <button class="modal-x" onclick="closeModal('newTreeOvl')">&#215;</button>
+    <div class="modal-title">New Tree</div>
+    <div class="fg"><label>Tree Name</label><input id="newTreeInp" placeholder="e.g. Smith Family"></div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <div style="display:flex;gap:8px">
+        <button class="btn-cancel" onclick="closeModal('newTreeOvl')">Cancel</button>
+        <button class="btn-save" onclick="confirmNewTree()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- RENAME MODAL -->
 <div class="overlay" id="renameOvl">
   <div class="modal modal-sm">
@@ -394,12 +409,19 @@ function setDBStatus(ok, text) {
 // ═══════════════════════════════════════════════════════════
 function activeTree(){ return st.activeId ? st.trees[st.activeId] : null; }
 
-async function newTree() {
-  var name = prompt('Tree name:', 'Family Tree ' + (Object.keys(st.trees).length + 1));
-  if (!name) return;
+function newTree() {
+  var inp = document.getElementById('newTreeInp');
+  inp.value = 'Family Tree ' + (Object.keys(st.trees).length + 1);
+  document.getElementById('newTreeOvl').classList.add('on');
+  setTimeout(function(){ inp.select(); inp.focus(); }, 80);
+}
+async function confirmNewTree() {
+  var name = document.getElementById('newTreeInp').value.trim();
+  if (!name) { document.getElementById('newTreeInp').focus(); return; }
   var id = gid();
   st.trees[id] = { id: id, name: name, persons: {} };
   st.activeId  = id;
+  closeModal('newTreeOvl');
   await save(); renderAll();
 }
 
@@ -850,12 +872,14 @@ document.addEventListener('DOMContentLoaded', async function(){
   // Global event handlers
   document.addEventListener('click', function(e){ if(!e.target.closest('#ctxMenu')) hideCtx(); });
   document.addEventListener('keydown', function(e){
-    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); closeModal('coupleOvl'); hideCtx(); }
+    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); closeModal('newTreeOvl'); closeModal('coupleOvl'); hideCtx(); }
     if (e.key==='Enter' && document.getElementById('renameOvl').classList.contains('on')) confirmRename();
   });
   document.getElementById('personOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('personOvl'); });
   document.getElementById('renameOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('renameOvl'); });
   document.getElementById('coupleOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('coupleOvl'); });
+  document.getElementById('newTreeOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('newTreeOvl'); });
+  document.getElementById('newTreeInp').addEventListener('keydown',function(e){ if(e.key==='Enter') confirmNewTree(); });
 });
 </script>
 </body>
