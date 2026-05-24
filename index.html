@@ -96,6 +96,7 @@
     .btn-save{font-family:'EB Garamond',serif;font-size:.97rem;padding:6px 19px;background:var(--accent);border:none;border-radius:4px;color:var(--parchment);cursor:pointer;transition:background .13s;} .btn-save:hover{background:var(--ink-mid)}
     .btn-cancel{font-family:'EB Garamond',serif;font-size:.9rem;padding:6px 14px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--ink-mid);cursor:pointer;} .btn-cancel:hover{background:var(--parchment)}
     .btn-del-p{font-family:'EB Garamond',serif;font-size:.88rem;background:none;border:none;color:#7a1010;cursor:pointer;padding:3px} .btn-del-p:hover{text-decoration:underline}
+    .btn-danger{font-family:'EB Garamond',serif;font-size:.97rem;padding:6px 19px;background:#8b2020;border:none;border-radius:4px;color:var(--parchment);cursor:pointer;transition:background .13s;} .btn-danger:hover{background:#6a1515}
 
     /* Loading screen */
     #loadScreen{position:fixed;inset:0;background:var(--parchment);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:9999;transition:opacity .4s;}
@@ -245,6 +246,21 @@
       <div style="display:flex;gap:8px">
         <button class="btn-cancel" onclick="closeModal('personOvl')">Cancel</button>
         <button class="btn-save" onclick="savePerson()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="overlay" id="confirmOvl">
+  <div class="modal modal-sm">
+    <button class="modal-x" onclick="closeModal('confirmOvl')">&#215;</button>
+    <div class="modal-title" id="confirmTitle">Confirm</div>
+    <p id="confirmMsg" style="font-size:.93rem;color:var(--ink-mid);margin-bottom:4px"></p>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <div style="display:flex;gap:8px">
+        <button class="btn-cancel" onclick="closeModal('confirmOvl')">Cancel</button>
+        <button class="btn-danger" id="confirmOkBtn" onclick="confirmDo()">Delete</button>
       </div>
     </div>
   </div>
@@ -425,14 +441,16 @@ async function confirmNewTree() {
   await save(); renderAll();
 }
 
-async function delTree() {
+function delTree() {
   if (!st.activeId) return;
-  if (!confirm('Delete "' + st.trees[st.activeId].name + '"? This cannot be undone.')) return;
-  await dbDelete('trees', st.activeId);
-  delete st.trees[st.activeId];
-  st.activeId = Object.keys(st.trees)[0] || null;
-  selId = null;
-  await save(); renderAll();
+  var id = st.activeId, name = st.trees[id].name;
+  showConfirm('Delete Tree', 'Delete "' + name + '"? This cannot be undone.', 'Delete', async function() {
+    await dbDelete('trees', id);
+    delete st.trees[id];
+    st.activeId = Object.keys(st.trees)[0] || null;
+    selId = null;
+    await save(); renderAll();
+  });
 }
 
 function openRename() {
@@ -534,6 +552,19 @@ function clearForm() {
 }
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 
+var _confirmCb = null;
+function showConfirm(title, msg, okLabel, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent   = msg;
+  document.getElementById('confirmOkBtn').textContent = okLabel || 'Confirm';
+  _confirmCb = cb;
+  document.getElementById('confirmOvl').classList.add('on');
+}
+function confirmDo() {
+  closeModal('confirmOvl');
+  if (_confirmCb) { var cb = _confirmCb; _confirmCb = null; cb(); }
+}
+
 async function savePerson() {
   var mode   = document.getElementById('mMode').value;
   var rel    = document.getElementById('mRelated').value;
@@ -567,14 +598,16 @@ async function savePerson() {
   await save(); renderTree(); updateSel();
 }
 
-async function deletePerson() {
+function deletePerson() {
   var editId = document.getElementById('mEditId').value;
   var tree   = activeTree(); if (!tree || !editId) return;
-  if (!confirm('Delete this person?')) return;
-  removePerson(tree, editId);
-  closeModal('personOvl');
-  if (selId === editId) selId = null;
-  await save(); renderTree(); updateSel();
+  var name   = (tree.persons[editId] || {}).name || 'this person';
+  showConfirm('Delete Person', 'Delete ' + name + '? This cannot be undone.', 'Delete', async function() {
+    removePerson(tree, editId);
+    closeModal('personOvl');
+    if (selId === editId) selId = null;
+    await save(); renderTree(); updateSel();
+  });
 }
 
 function removePerson(tree, pid) {
@@ -802,10 +835,13 @@ async function ctxDo(act) {
   else if (act==='spouse') openAdd('spouse',ctxId);
   else if (act==='parent') openAdd('parent',ctxId);
   else if (act==='delete') {
-    if (!confirm('Delete this person?')) return;
+    var id   = ctxId;
     var tree = activeTree(); if (!tree) return;
-    removePerson(tree, ctxId); if (selId===ctxId) selId=null;
-    await save(); renderTree(); updateSel();
+    var name = (tree.persons[id] || {}).name || 'this person';
+    showConfirm('Delete Person', 'Delete ' + name + '? This cannot be undone.', 'Delete', async function() {
+      removePerson(tree, id); if (selId===id) selId=null;
+      await save(); renderTree(); updateSel();
+    });
   }
 }
 
@@ -872,7 +908,7 @@ document.addEventListener('DOMContentLoaded', async function(){
   // Global event handlers
   document.addEventListener('click', function(e){ if(!e.target.closest('#ctxMenu')) hideCtx(); });
   document.addEventListener('keydown', function(e){
-    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); closeModal('newTreeOvl'); closeModal('coupleOvl'); hideCtx(); }
+    if (e.key==='Escape'){ closeModal('personOvl'); closeModal('renameOvl'); closeModal('newTreeOvl'); closeModal('coupleOvl'); closeModal('confirmOvl'); hideCtx(); }
     if (e.key==='Enter' && document.getElementById('renameOvl').classList.contains('on')) confirmRename();
   });
   document.getElementById('personOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('personOvl'); });
@@ -880,6 +916,7 @@ document.addEventListener('DOMContentLoaded', async function(){
   document.getElementById('coupleOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('coupleOvl'); });
   document.getElementById('newTreeOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('newTreeOvl'); });
   document.getElementById('newTreeInp').addEventListener('keydown',function(e){ if(e.key==='Enter') confirmNewTree(); });
+  document.getElementById('confirmOvl').addEventListener('click',function(e){ if(e.target===e.currentTarget) closeModal('confirmOvl'); });
 });
 </script>
 </body>
